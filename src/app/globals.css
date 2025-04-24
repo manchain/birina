@@ -13,10 +13,50 @@
 	font-optical-sizing: auto;
 	font-style: normal;
 	font-variation-settings: 'slnt' 0;
+	--foreground-rgb: 0, 0, 0;
+	--background-start-rgb: 214, 219, 220;
+	--background-end-rgb: 255, 255, 255;
+}
+
+@media (prefers-color-scheme: dark) {
+	:root {
+		--foreground-rgb: 255, 255, 255;
+		--background-start-rgb: 0, 0, 0;
+		--background-end-rgb: 0, 0, 0;
+	}
 }
 
 @layer base {
 	body {
 		@apply bg-zinc-950 text-neutral-200;
 	}
+}
+
+/* Custom styles for ThirdWeb ConnectButton */
+.custom-connect-button-wrapper {
+	background-color: #EBA519;
+	color: white;
+	font-weight: bold;
+	padding: 0;
+	border-radius: 0.75rem;
+	width: 100%;
+	overflow: hidden;
+	transition: background-color 0.3s;
+}
+
+.custom-connect-button-wrapper:hover {
+	background-color: #d4a554;
+}
+
+/* Make children inherit the wrapper styles */
+.custom-connect-button-wrapper > div,
+.custom-connect-button-wrapper button {
+	background-color: transparent !important;
+	color: white !important;
+	font-weight: bold !important;
+	width: 100% !important;
+	height: 100% !important;
+	padding: 1rem !important;
+	text-transform: uppercase;
+	border: none !important;
 }
