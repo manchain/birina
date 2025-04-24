@@ -9,6 +9,16 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@biconomy/account": "^4.5.7",
+    "@biconomy/bundler": "^3.1.4",
+    "@biconomy/common": "^3.1.4",
+    "@biconomy/core-types": "^3.1.4",
+    "@biconomy/modules": "^3.1.4",
+    "@biconomy/particle-auth": "^3.1.4",
+    "@biconomy/paymaster": "^3.1.4",
+    "@biconomy/web3-auth": "^3.1.0",
+    "@ethersproject/providers": "^5.8.0",
+    "ethers": "5.7.2",
     "next": "14.1.0",
     "react": "^18.3",
     "react-dom": "^18.3",

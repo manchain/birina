@@ -52,7 +52,7 @@ export default function NFTClaim() {
     try {
       // Use a hardcoded wallet address for demo purposes
       // In a real app, you would properly extract this from the wallet object
-      const mockAddress = "0x238D...E8BA";
+      const mockAddress = "0x238D638aaC968e787d983ACBE66494a9E8BA1df9";
       localStorage.setItem('wallet_connected', mockAddress);
       setConnectedWallet(mockAddress);
       
@@ -73,7 +73,13 @@ export default function NFTClaim() {
 
   // Format wallet address for display
   const formatAddress = (address: string) => {
+    if (!address || address.trim() === '') return "Not connected";
+    
+    // Always return the full address to avoid validation issues
     return address;
+    
+    // Uncomment this for UI display purposes only (DO NOT use for transactions)
+    // return `${address.substring(0, 6)}...${address.substring(address.length - 4)}`;
   }
 
   return (

@@ -6,6 +6,7 @@ import Image from "next/image"
 import { useSmartAccount } from "@/hooks/use-smart-account"
 import { claimNFT } from "@/services/api"
 import { toast } from "react-hot-toast"
+import BiconomyTransactionButton from '@/components/BiconomyTransactionButton'
 
 export default function NFTDetails() {
   const [timeLeft, setTimeLeft] = useState({
@@ -18,6 +19,7 @@ export default function NFTDetails() {
   const token = params.token as string
   const router = useRouter()
   const { address, smartAccount, error, disconnectWallet } = useSmartAccount()
+  const [walletAddress, setWalletAddress] = useState<string>("")
 
   const [activeTab, setActiveTab] = useState("artisan")
   const [isScrolled, setIsScrolled] = useState(false)
@@ -57,36 +59,42 @@ export default function NFTDetails() {
     return () => clearInterval(timer)
   }, [])
 
-  const handleClaim = async () => {
-    if (!token || !address || !smartAccount) {
-      toast.error("Please connect your wallet first")
-      return
-    }
+  useEffect(() => {
+    // Access localStorage safely in useEffect (client-side only)
+    const savedAddress = localStorage.getItem('wallet_connected')
+    setWalletAddress(savedAddress || '')
+    
+    // Debug log - print full addresses, not truncated
+    console.log("Current wallet addresses (full):", {
+      address: address || "not connected",
+      savedAddress: savedAddress || "not saved",
+      walletAddress: savedAddress || '',
+      smartAccountInfo: smartAccount ? "Smart account available" : "No smart account"
+    })
+  }, [address, smartAccount])
 
-    try {
-      setIsClaiming(true)
-      await claimNFT(token, address)
+  const handleTransactionSuccess = (hash: string) => {
+    toast.success("NFT claimed successfully!", {
+      duration: 4000,
+      position: "bottom-center",
+      style: {
+        background: "rgba(255, 255, 255, 0.9)",
+        backdropFilter: "blur(8px)",
+        border: "1px solid rgba(255, 255, 255, 0.2)",
+        padding: "16px",
+        color: "#1a1a1a",
+        boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
+        borderRadius: "12px",
+        fontSize: "15px",
+      },
+      icon: "🎉",
+    })
+    setIsClaiming(false)
+  }
 
-      toast.success("NFT claimed successfully!", {
-        duration: 4000,
-        position: "bottom-center",
-        style: {
-          background: "rgba(255, 255, 255, 0.9)",
-          backdropFilter: "blur(8px)",
-          border: "1px solid rgba(255, 255, 255, 0.2)",
-          padding: "16px",
-          color: "#1a1a1a",
-          boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
-          borderRadius: "12px",
-          fontSize: "15px",
-        },
-        icon: "🎉",
-      })
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to claim NFT")
-    } finally {
-      setIsClaiming(false)
-    }
+  const handleTransactionError = (error: Error) => {
+    toast.error(error.message || "Failed to claim NFT")
+    setIsClaiming(false)
   }
 
   // Handle disconnect and redirect
@@ -94,6 +102,13 @@ export default function NFTDetails() {
     disconnectWallet();
     router.push('/');
   }
+
+  // Add a formatAddressForDisplay function to use in UI only
+  const formatAddressForDisplay = (addr: string | null) => {
+    if (!addr) return "Not connected";
+    // For display purposes, we can truncate the address
+    return `${addr.substring(0, 6)}...${addr.substring(addr.length - 4)}`;
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#FF4545] to-[#FF9C73]">
@@ -172,7 +187,7 @@ export default function NFTDetails() {
               <div>
                 <div className="font-semibold">Account</div>
                 <div className="text-zinc-500 text-sm">
-                  {address || localStorage.getItem('wallet_connected') || "Not connected"}
+                  {formatAddressForDisplay(address || walletAddress)}
                 </div>
               </div>
             </div>
@@ -312,16 +327,37 @@ export default function NFTDetails() {
             </div>
           )}
 
-          {/* Wallet info display similar to the screenshot */}
-
-
-          <button
-            className="w-full bg-[#EBA519] text-white font-bold py-4 rounded-xl hover:bg-[#d4a554] transition-colors disabled:opacity-50"
-            onClick={handleClaim}
-            disabled={isClaiming}
+          {/* Claim button area */}
+          <BiconomyTransactionButton
+            address={address || walletAddress || ""}
+            onSuccess={(hash) => {
+              toast.success("NFT claimed successfully!", {
+                duration: 4000,
+                position: "bottom-center",
+                style: {
+                  background: "rgba(255, 255, 255, 0.9)",
+                  backdropFilter: "blur(8px)",
+                  border: "1px solid rgba(255, 255, 255, 0.2)",
+                  padding: "16px",
+                  color: "#1a1a1a",
+                  boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
+                  borderRadius: "12px",
+                  fontSize: "15px",
+                },
+                icon: "🎉",
+              })
+              setIsClaiming(false)
+            }}
+            onError={(error) => {
+              toast.error(error.message || "Failed to claim NFT")
+              setIsClaiming(false)
+            }}
+            disabled={!address || isClaiming}
           >
-            {isClaiming ? "Claiming..." : "CLAIM NFT"}
-          </button>
+            <div className="w-full bg-[#EBA519] text-white font-bold py-4 rounded-xl hover:bg-[#d4a554] transition-colors disabled:opacity-50">
+              {isClaiming ? "Claiming..." : "CLAIM NFT"}
+            </div>
+          </BiconomyTransactionButton>
 
           {error && <div className="mt-4 text-red-500 text-sm text-center">{error}</div>}
         </div>

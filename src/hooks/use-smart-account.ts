@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
 import { client } from "@/app/client";
-import { connectWallet as thirdwebConnectWallet } from "thirdweb/react";
 
 export interface SmartAccountState {
   address: string | null;
@@ -24,9 +23,12 @@ export function useSmartAccount(): SmartAccountState {
         // This is a simplified implementation
         // In a real app, you'd use the proper ThirdWeb SDK methods
         const wallet = localStorage.getItem('wallet_connected');
+        console.log("[useSmartAccount] Retrieved wallet from localStorage:", wallet);
+        
         if (wallet) {
           setAddress(wallet);
           setSmartAccount({});
+          console.log("[useSmartAccount] Wallet address set:", wallet);
         }
       } catch (err) {
         console.error("Error checking wallet connection:", err);
@@ -42,14 +44,16 @@ export function useSmartAccount(): SmartAccountState {
     
     try {
       // In a real implementation, we'd use the actual wallet
-      // For our demo, we'll use a mock address since we're encountering an error
-      const mockAddress = "0x238D...E8BA";
+      // For our demo, we'll use a valid Ethereum address
+      const mockAddress = "0x238D638aaC968e787d983ACBE66494a9E8BA1df9";
+      console.log("[useSmartAccount] Connecting with address:", mockAddress);
+      
       setAddress(mockAddress);
       setSmartAccount({});
       
       // For demo purposes, store in localStorage to persist "connection"
       localStorage.setItem('wallet_connected', mockAddress);
-      return mockAddress;
+      console.log("[useSmartAccount] Stored wallet in localStorage:", mockAddress);
     } catch (err) {
       console.error("Error connecting wallet:", err);
       if (err instanceof Error) {
@@ -70,6 +74,7 @@ export function useSmartAccount(): SmartAccountState {
     
     // Remove from localStorage
     localStorage.removeItem('wallet_connected');
+    console.log("[useSmartAccount] Wallet disconnected and removed from localStorage");
   }, []);
 
   return { address, loading, error, smartAccount, connectWallet, disconnectWallet };
