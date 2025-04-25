@@ -1,28 +1,33 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { ethers } from 'ethers'
 import { bundler, paymaster } from '../config/biconomy'
 import { ChainId } from '@biconomy/core-types'
+import { DEFAULT_ENTRYPOINT_ADDRESS } from '@biconomy/account'
+import { ECDSAOwnershipValidationModule, DEFAULT_ECDSA_OWNERSHIP_MODULE } from "@biconomy/modules";
 
-// Base Sepolia chain ID (not in ChainId enum yet, so we cast it)
+// Base Sepolia chain ID
 const BASE_SEPOLIA_CHAIN_ID = 84532 as unknown as ChainId;
 
 export const useBiconomyAccount = () => {
   const [smartAccount, setSmartAccount] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [address, setAddress] = useState<string | null>(null)
 
-  const initSmartAccount = async () => {
+  const initSmartAccount = useCallback(async () => {
     try {
+      setLoading(true);
+      setError(null);
+
       // Make sure ethereum is available
       if (!window.ethereum) {
         throw new Error("Ethereum provider not available. Please install a wallet.");
       }
 
-      // Safely get the provider and signer
+      // Get provider and signer
       const provider = new ethers.providers.Web3Provider(window.ethereum);
       
       try {
-        // Request accounts
         await provider.send("eth_requestAccounts", []);
       } catch (requestError) {
         console.error("Failed to request accounts:", requestError);
@@ -30,44 +35,82 @@ export const useBiconomyAccount = () => {
       }
       
       const signer = provider.getSigner();
-      
-      // Dynamically import Biconomy modules to avoid initialization errors
-      const { BiconomySmartAccountV2, DEFAULT_ENTRYPOINT_ADDRESS } = await import('@biconomy/account');
+      const walletAddress = await signer.getAddress();
+      console.log("Wallet address:", walletAddress);
 
-      console.log("Creating Biconomy smart account...");
-      
-      // Create biconomy smart account instance with type assertions to avoid typing issues
-      const biconomySmartAccount = await BiconomySmartAccountV2.create({
-        chainId: BASE_SEPOLIA_CHAIN_ID,
-        bundler: bundler as any,
-        paymaster: paymaster as any,
-        entryPointAddress: DEFAULT_ENTRYPOINT_ADDRESS,
-        signer: signer
-      });
-      
-      // Verify the account is properly initialized by getting its address
-      const address = await biconomySmartAccount.getAddress();
-      console.log("Smart account created with address:", address);
+      try {
+        // Import BiconomySmartAccountV2 dynamically
+        const { BiconomySmartAccountV2 } = await import('@biconomy/account').catch(e => {
+          console.error("Failed to import BiconomySmartAccountV2:", e);
+          throw new Error("Failed to load Biconomy SDK. Please refresh the page.");
+        });
 
-      setSmartAccount(biconomySmartAccount);
-      setLoading(false);
-    } catch (err) {
-      console.error('Error initializing smart account:', err);
-      setError(err instanceof Error ? err.message : 'Failed to initialize smart account');
+        // Create validation module
+        const module = await ECDSAOwnershipValidationModule.create({
+          signer: signer,
+          moduleAddress: DEFAULT_ECDSA_OWNERSHIP_MODULE
+        });
+
+        // Create smart account
+        const biconomyAccount = await BiconomySmartAccountV2.create({
+          chainId: BASE_SEPOLIA_CHAIN_ID,
+          bundler,
+          paymaster,
+          entryPointAddress: DEFAULT_ENTRYPOINT_ADDRESS,
+          defaultValidationModule: module,
+          activeValidationModule: module
+        });
+
+        console.log("Smart account created:", biconomyAccount);
+
+        // Get the address
+        const address = await biconomyAccount.getAccountAddress();
+        console.log("Smart account address:", address);
+
+        setSmartAccount(biconomyAccount);
+        setAddress(address);
+        
+        return { account: biconomyAccount, address };
+      } catch (createError: any) {
+        console.error("Smart account creation error:", createError);
+        throw new Error(`Failed to create smart account: ${createError.message}`);
+      }
+    } catch (err: any) {
+      console.error('Error in initSmartAccount:', err);
+      const errorMsg = err?.message || "Failed to initialize smart account";
+      setError(errorMsg);
+      return { error: errorMsg };
+    } finally {
       setLoading(false);
     }
-  };
-
-  useEffect(() => {
-    // Delay initialization slightly to ensure all modules are loaded
-    const timer = setTimeout(() => {
-      initSmartAccount();
-    }, 100);
-    
-    return () => clearTimeout(timer);
   }, []);
 
-  return { smartAccount, loading, error };
+  useEffect(() => {
+    // Only initialize if not already initialized
+    if (!smartAccount && !loading && !error) {
+      initSmartAccount();
+    }
+  }, [smartAccount, loading, error, initSmartAccount]);
+
+  const reinitialize = useCallback(() => {
+    setLoading(true);
+    setError(null);
+    setSmartAccount(null);
+    setAddress(null);
+    
+    // Add a small delay before reinitializing
+    setTimeout(() => {
+      initSmartAccount();
+    }, 500);
+  }, [initSmartAccount]);
+
+  return { 
+    smartAccount, 
+    loading, 
+    error, 
+    address,
+    reinitialize
+  };
 };
 
 export default useBiconomyAccount; 

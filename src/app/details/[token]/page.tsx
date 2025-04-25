@@ -91,23 +91,23 @@ export default function NFTDetails() {
   }, [address, smartAccount])
 
   const handleTransactionSuccess = (hash: string) => {
-    toast.success("NFT claimed successfully!", {
-      duration: 4000,
-      position: "bottom-center",
-      style: {
-        background: "rgba(255, 255, 255, 0.9)",
-        backdropFilter: "blur(8px)",
-        border: "1px solid rgba(255, 255, 255, 0.2)",
-        padding: "16px",
-        color: "#1a1a1a",
-        boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
-        borderRadius: "12px",
-        fontSize: "15px",
-      },
-      icon: "🎉",
-    })
-    setIsClaiming(false)
-  }
+      toast.success("NFT claimed successfully!", {
+        duration: 4000,
+        position: "bottom-center",
+        style: {
+          background: "rgba(255, 255, 255, 0.9)",
+          backdropFilter: "blur(8px)",
+          border: "1px solid rgba(255, 255, 255, 0.2)",
+          padding: "16px",
+          color: "#1a1a1a",
+          boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
+          borderRadius: "12px",
+          fontSize: "15px",
+        },
+        icon: "🎉",
+      })
+      setIsClaiming(false)
+    }
 
   const handleTransactionError = (error: Error) => {
     toast.error(error.message || "Failed to claim NFT")
@@ -371,7 +371,7 @@ export default function NFTDetails() {
             disabled={!address || isClaiming}
           >
             <div className="w-full bg-[#EBA519] text-white font-bold py-4 rounded-xl hover:bg-[#d4a554] transition-colors disabled:opacity-50">
-              {isClaiming ? "Claiming..." : "CLAIM NFT"}
+            {isClaiming ? "Claiming..." : "CLAIM NFT"}
             </div>
           </BiconomyTransactionButton>
 
