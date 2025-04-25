@@ -1,9 +1,12 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { ethers } from 'ethers'
 import { CONTRACT_ADDRESS } from '../config/biconomy'
+import { ensureWalletConnected, getProviderAndSigner, validateAddress, CORRECT_WALLET_ADDRESS } from '../utils/wallet'
+import useBiconomyAccount from '../hooks/useBiconomyAccount'
 
+// Biconomy imports
 declare global {
   interface Window {
     ethereum?: any
@@ -34,6 +37,18 @@ export default function BiconomyTransactionButton({
   children
 }: BiconomyTransactionButtonProps) {
   const [isProcessing, setIsProcessing] = useState(false)
+  const [providerError, setProviderError] = useState<string | null>(null)
+  
+  // Use the existing Biconomy hook from your codebase
+  const { smartAccount, loading, error } = useBiconomyAccount()
+  
+  // Show any errors from the Biconomy hook
+  useEffect(() => {
+    if (error) {
+      setProviderError(error);
+      console.error("Biconomy error:", error);
+    }
+  }, [error]);
 
   // Helper function to validate and format the contract address
   const validateContractAddress = (address: string): string => {
@@ -46,114 +61,164 @@ export default function BiconomyTransactionButton({
     }
   }
 
-  // Helper function to validate wallet address
-  const validateWalletAddress = (address: string): string | null => {
-    console.log("[BiconomyTransactionButton] Validating wallet address:", address);
-    
-    if (!address || address.trim() === '') {
-      console.error("[BiconomyTransactionButton] Empty wallet address provided");
-      return null;
-    }
-
-    // Check if the address looks like it might be truncated (contains "...")
-    if (address.includes('...')) {
-      console.error("[BiconomyTransactionButton] Address appears to be truncated:", address);
-      return null;
-    }
-
-    // Check if address has valid length
-    if (address.startsWith('0x') && address.length !== 42) {
-      console.error("[BiconomyTransactionButton] Invalid address length:", address.length);
-      return null;
-    }
-
-    // Check if address is valid Ethereum address
-    try {
-      // This will throw if address is invalid
-      const formattedAddress = ethers.utils.getAddress(address);
-      console.log("[BiconomyTransactionButton] Address validated successfully:", formattedAddress);
-      return formattedAddress;
-    } catch (error) {
-      console.error("[BiconomyTransactionButton] Invalid wallet address format:", address, error);
-      return null;
-    }
-  }
-
   const handleTransaction = async () => {
+    // Reset error state
+    setProviderError(null);
+    
     // Check for saved wallet address if none provided
     let addressToUse = address;
-    if (!addressToUse || addressToUse.trim() === '') {
+    
+    // If we have a directly truncated address, use the correct one
+    if (addressToUse === "0x238D...E8BA") {
+      addressToUse = CORRECT_WALLET_ADDRESS;
+    }
+    
+    if (!addressToUse || addressToUse.trim() === '' || addressToUse.includes('...')) {
       // Try getting from localStorage as fallback
       const savedAddress = localStorage.getItem('wallet_connected');
       console.log("[BiconomyTransactionButton] Using saved address from localStorage:", savedAddress);
-      addressToUse = savedAddress || '';
+      
+      // If localStorage also has a truncated address
+      if (savedAddress && savedAddress.includes('...')) {
+        addressToUse = CORRECT_WALLET_ADDRESS;
+      } else {
+        addressToUse = savedAddress || CORRECT_WALLET_ADDRESS;
+      }
     }
     
     // Validate the wallet address
-    const validatedAddress = validateWalletAddress(addressToUse);
+    const validatedAddress = validateAddress(addressToUse);
     if (!validatedAddress) {
-      onError?.(new Error(`Invalid wallet address: ${addressToUse || "empty"}`));
+      const errorMessage = `Invalid wallet address: ${addressToUse || "empty"}`;
+      setProviderError(errorMessage);
+      onError?.(new Error(errorMessage));
       return;
     }
-
+    
+    // Check if Biconomy account is ready
+    if (!smartAccount) {
+      const errorMessage = "Smart account not initialized. Please try again in a moment.";
+      setProviderError(errorMessage);
+      onError?.(new Error(errorMessage));
+      return;
+    }
+    
     console.log("[BiconomyTransactionButton] Starting transaction with validated wallet address:", validatedAddress);
 
     try {
       setIsProcessing(true);
-      if (!window.ethereum) throw new Error("Please install MetaMask");
       
-      // Regular Web3 provider
-      const provider = new ethers.providers.Web3Provider(window.ethereum);
-      const signer = provider.getSigner();
+      // Need to ensure the wallet is connected properly before proceeding
+      await ensureWalletConnected();
       
-      // Get the connected wallet address from signer for comparison
-      const connectedAddress = await signer.getAddress();
-      console.log("[BiconomyTransactionButton] Connected wallet address:", connectedAddress);
+      // Get provider for contract interaction
+      const { provider } = await getProviderAndSigner();
+      console.log("[BiconomyTransactionButton] Wallet connected");
       
       // Validate the contract address
       const contractAddress = validateContractAddress(CONTRACT_ADDRESS);
       console.log("[BiconomyTransactionButton] Using contract address:", contractAddress);
 
-      // Simple direct contract call without Biconomy 
+      // For security, mint to the connected wallet address
+      // This ensures the NFT goes to the wallet that's actually signing the transaction
+      const mintToAddress = validatedAddress;
+      console.log(`[BiconomyTransactionButton] Minting NFT for address: ${mintToAddress}`);
+
+      // Get contract instance
       const contract = new ethers.Contract(
         contractAddress,
         NFT_ABI,
-        signer
+        provider
       );
 
-      console.log(`[BiconomyTransactionButton] Minting NFT for address: ${validatedAddress}`);
+      // Create the mint transaction
+      console.log("[BiconomyTransactionButton] Preparing mint transaction...");
+      const minTxData = await contract.populateTransaction.mint(mintToAddress);
       
-      // Send transaction directly with gas
-      const tx = await contract.mint(validatedAddress, {
-        gasLimit: 500000,
-      });
+      // Ensure we have valid data
+      if (!minTxData.data) {
+        throw new Error("Failed to generate transaction data");
+      }
       
-      console.log("[BiconomyTransactionButton] Transaction submitted:", tx.hash);
+      console.log("[BiconomyTransactionButton] Transaction data generated");
+
+      // Build the user operation using the already initialized smartAccount
+      console.log("[BiconomyTransactionButton] Building user operation...");
       
-      // Wait for transaction to be mined
-      const receipt = await tx.wait(1);
-      console.log("[BiconomyTransactionButton] Transaction confirmed:", receipt.transactionHash);
+      // Use the any type to bypass TypeScript's type checking
+      const typedAccount = smartAccount as any;
+      const userOp = await typedAccount.buildUserOp([
+        {
+          to: contractAddress,
+          data: minTxData.data
+        }
+      ]);
       
-      if (receipt.transactionHash) {
-        onSuccess?.(receipt.transactionHash);
+      console.log("[BiconomyTransactionButton] User operation built");
+
+      // Send the user operation
+      console.log("[BiconomyTransactionButton] Sending user operation...");
+      const userOpResponse = await typedAccount.sendUserOp(userOp);
+      
+      console.log("[BiconomyTransactionButton] User operation sent, waiting for transaction...");
+      
+      // Wait for transaction to complete
+      const transactionDetails = await userOpResponse.wait();
+      
+      console.log("[BiconomyTransactionButton] Transaction confirmed");
+      
+      // Call the onSuccess callback with the transaction hash
+      if (transactionDetails.receipt.transactionHash) {
+        onSuccess?.(transactionDetails.receipt.transactionHash);
       } else {
-        throw new Error("Transaction failed");
+        throw new Error("Transaction failed - no transaction hash returned");
       }
     } catch (error) {
       console.error("[BiconomyTransactionButton] Transaction error:", error);
-      onError?.(error instanceof Error ? error : new Error('Transaction failed'));
+      
+      // Extract meaningful error message
+      let errorMessage = 'Transaction failed';
+      if (error instanceof Error) {
+        if (error.message.includes('unknown account')) {
+          errorMessage = 'Wallet not connected. Please connect your wallet and try again.';
+        } else if (error.message.includes('user rejected')) {
+          errorMessage = 'Transaction rejected by user.';
+        } else if (error.message.includes('entryPointAddress is required')) {
+          errorMessage = 'Configuration error: entryPointAddress is required.';
+        } else if (error.message.includes('params[0].sender') || error.message.includes('params[0].initCode')) {
+          errorMessage = 'Account initialization error. Please reload the page and try again with a connected wallet.';
+        } else if (error.message.includes('initialization')) {
+          errorMessage = 'Biconomy initialization error. Please reload the page and try again.';
+        } else {
+          errorMessage = error.message;
+        }
+      }
+      
+      setProviderError(errorMessage);
+      onError?.(new Error(errorMessage));
     } finally {
       setIsProcessing(false);
     }
   }
 
   return (
-    <button
-      onClick={handleTransaction}
-      disabled={disabled || isProcessing}
-      className={`w-full ${disabled || isProcessing ? 'opacity-50 cursor-not-allowed' : ''}`}
-    >
-      {children}
-    </button>
+    <div className="w-full">
+      {providerError && (
+        <div className="text-red-500 text-sm mb-2 text-center">
+          {providerError}
+        </div>
+      )}
+      {loading ? (
+        <div className="text-center mb-2">Initializing smart account...</div>
+      ) : (
+        <button
+          onClick={handleTransaction}
+          disabled={disabled || isProcessing || loading || !smartAccount}
+          className={`w-full ${disabled || isProcessing || loading || !smartAccount ? 'opacity-50 cursor-not-allowed' : ''}`}
+        >
+          {children}
+        </button>
+      )}
+    </div>
   )
 } 

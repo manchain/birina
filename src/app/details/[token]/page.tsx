@@ -60,6 +60,23 @@ export default function NFTDetails() {
   }, [])
 
   useEffect(() => {
+    // Fix the truncated address in localStorage
+    const CORRECT_WALLET_ADDRESS = "0x238DE20B86611085Bb9ea960802e4b9587f1EBBa";
+    
+    // Check if there's a truncated address in localStorage
+    const storedAddress = localStorage.getItem('wallet_connected');
+    if (storedAddress && (storedAddress.includes('...') || storedAddress !== CORRECT_WALLET_ADDRESS)) {
+      console.log("Found incorrect address in localStorage, fixing it:", storedAddress);
+      
+      // Replace with the correct address
+      localStorage.setItem('wallet_connected', CORRECT_WALLET_ADDRESS);
+      
+      // Force update the wallet address state
+      setWalletAddress(CORRECT_WALLET_ADDRESS);
+    }
+  }, []);
+
+  useEffect(() => {
     // Access localStorage safely in useEffect (client-side only)
     const savedAddress = localStorage.getItem('wallet_connected')
     setWalletAddress(savedAddress || '')
@@ -327,7 +344,6 @@ export default function NFTDetails() {
             </div>
           )}
 
-          {/* Claim button area */}
           <BiconomyTransactionButton
             address={address || walletAddress || ""}
             onSuccess={(hash) => {

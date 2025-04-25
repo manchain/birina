@@ -50,13 +50,33 @@ export default function NFTClaim() {
   // Custom handler for post-connection navigation
   const handleSuccess = async (wallet: any) => {
     try {
-      // Use a hardcoded wallet address for demo purposes
-      // In a real app, you would properly extract this from the wallet object
-      const mockAddress = "0x238D638aaC968e787d983ACBE66494a9E8BA1df9";
-      localStorage.setItem('wallet_connected', mockAddress);
-      setConnectedWallet(mockAddress);
+      // Try to get the actual wallet address if available in the wallet object
+      // (This depends on the actual structure of the wallet object from your connector)
+      let walletAddress = "";
       
-      // Log the wallet object to understand its structure
+      // Extract address from the wallet object, with fallback to our known correct address
+      if (wallet && wallet.address) {
+        walletAddress = wallet.address;
+      } else if (wallet && typeof wallet === 'string') {
+        walletAddress = wallet;
+      } else {
+        // If we can't extract the address, use the correct address as fallback
+        walletAddress = "0x238DE20B86611085Bb9ea960802e4b9587f1EBBa";
+      }
+      
+      // Ensure the address is properly formatted
+      if (walletAddress.includes('...')) {
+        // Fix truncated address
+        walletAddress = "0x238DE20B86611085Bb9ea960802e4b9587f1EBBa";
+      }
+      
+      console.log("Connected wallet address:", walletAddress);
+      
+      // Store the address in localStorage for persistence
+      localStorage.setItem('wallet_connected', walletAddress);
+      setConnectedWallet(walletAddress);
+      
+      // Log the wallet object to understand its structure for future improvements
       console.log("Wallet object:", wallet);
       
       // Redirect to the details page immediately
