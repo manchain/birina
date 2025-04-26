@@ -3,9 +3,10 @@ import { BiconomySmartAccountV2, DEFAULT_ENTRYPOINT_ADDRESS } from '@biconomy/ac
 import { IPaymaster, BiconomyPaymaster } from '@biconomy/paymaster'
 import { ChainId } from '@biconomy/core-types'
 import { ethers } from 'ethers'
+import { baseSepolia } from 'thirdweb/chains'
 
 // Chain ID for Base Sepolia testnet
-const BASE_SEPOLIA_CHAIN_ID = 84532 as unknown as ChainId;
+const BASE_SEPOLIA_CHAIN_ID = baseSepolia.id;
 
 // Create bundler instance
 export const bundler: IBundler = new Bundler({

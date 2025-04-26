@@ -4,9 +4,10 @@ import { bundler, paymaster } from '../config/biconomy'
 import { ChainId } from '@biconomy/core-types'
 import { DEFAULT_ENTRYPOINT_ADDRESS } from '@biconomy/account'
 import { ECDSAOwnershipValidationModule, DEFAULT_ECDSA_OWNERSHIP_MODULE } from "@biconomy/modules";
+import { baseSepolia } from 'thirdweb/chains'
 
 // Base Sepolia chain ID
-const BASE_SEPOLIA_CHAIN_ID = 84532 as unknown as ChainId;
+const BASE_SEPOLIA_CHAIN_ID = baseSepolia.id;
 
 export const useBiconomyAccount = () => {
   const [smartAccount, setSmartAccount] = useState<any>(null)
@@ -46,19 +47,18 @@ export const useBiconomyAccount = () => {
         });
 
         // Create validation module
-        const module = await ECDSAOwnershipValidationModule.create({
+        const mod = await ECDSAOwnershipValidationModule.create({
           signer: signer,
-          moduleAddress: DEFAULT_ECDSA_OWNERSHIP_MODULE
+          moduleAddress: DEFAULT_ECDSA_OWNERSHIP_MODULE,
         });
 
         // Create smart account
         const biconomyAccount = await BiconomySmartAccountV2.create({
-          chainId: BASE_SEPOLIA_CHAIN_ID,
-          bundler,
-          paymaster,
-          entryPointAddress: DEFAULT_ENTRYPOINT_ADDRESS,
-          defaultValidationModule: module,
-          activeValidationModule: module
+          signer: signer,
+          chainId: baseSepolia.id,
+          bundlerUrl: `${process.env.BUNDLER_URL}`,
+          paymasterUrl: `${process.env.PAYMASTER_URL}`,
+          biconomyPaymasterApiKey: `${process.env.PAYMASTER_API_KEY}`
         });
 
         console.log("Smart account created:", biconomyAccount);
