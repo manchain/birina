@@ -1,6 +1,7 @@
 import { BiconomySmartAccountV2 } from '@biconomy/account'
 import { ethers } from 'ethers'
 import { CONTRACT_ADDRESS } from '../config/biconomy'
+import { Hex } from 'thirdweb'
 
 const NFT_ABI = [
   'function mint(address to) public',
@@ -17,12 +18,14 @@ export const mintNFT = async (smartAccount: BiconomySmartAccountV2) => {
       await smartAccount.getAddress()
     )
 
+    const tx = {
+      to: CONTRACT_ADDRESS as Hex,
+      data: minTxData.data as Hex,
+      value: '0',
+    }
     // Build the user operation
     const userOp = await smartAccount.buildUserOp([
-      {
-        to: CONTRACT_ADDRESS,
-        data: minTxData.data,
-      },
+      tx
     ])
 
     // Send the user operation
