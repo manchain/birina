@@ -6,6 +6,7 @@ import Image from "next/image"
 import { ConnectButton } from "thirdweb/react"
 import { client } from "./client"
 import { toast } from "react-hot-toast"
+import { ethers } from "ethers"
 
 // Client component that uses search params
 function NFTClaimContent() {
@@ -15,6 +16,7 @@ function NFTClaimContent() {
     seconds: 21,
   })
   const [connectedWallet, setConnectedWallet] = useState<string | null>(null)
+  const [ethBalance, setEthBalance] = useState<string>("0")
 
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -29,6 +31,26 @@ function NFTClaimContent() {
       router.push(`/details/${token}`)
     }
   }, [router, token])
+
+  // Fetch ETH balance when wallet is connected
+  useEffect(() => {
+    const fetchBalance = async () => {
+      if (connectedWallet) {
+        try {
+          // Use ethers.js to get the balance
+          const provider = new ethers.providers.Web3Provider(window.ethereum);
+          const balance = await provider.getBalance(connectedWallet);
+          const formattedBalance = ethers.utils.formatEther(balance);
+          setEthBalance(formattedBalance);
+        } catch (error) {
+          console.error("Error fetching balance:", error);
+          setEthBalance("0");
+        }
+      }
+    };
+
+    fetchBalance();
+  }, [connectedWallet]);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -91,8 +113,8 @@ function NFTClaimContent() {
   const formatAddress = (address: string) => {
     if (!address || address.trim() === '') return "Not connected";
     
-    // Always return the full address to avoid validation issues
-    return address;
+    // Show "Connected" instead of the full address
+    return "Connected";
     
     // Uncomment this for UI display purposes only (DO NOT use for transactions)
     // return `${address.substring(0, 6)}...${address.substring(address.length - 4)}`;
@@ -170,8 +192,8 @@ function NFTClaimContent() {
               <div className="flex items-center gap-2">
                 <div className="w-6 h-6 rounded-full bg-green-400 flex-shrink-0"></div>
                 <div>
-                  <div className="font-bold">{formatAddress(connectedWallet)}</div>
-                  <div className="text-xs">0.0504 ETH</div>
+                  <div className="font-bold">Connected</div>
+                  <div className="text-xs">{parseFloat(ethBalance).toFixed(4)} ETH</div>
                 </div>
               </div>
             </div>
